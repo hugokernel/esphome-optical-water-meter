@@ -135,11 +135,9 @@ float Muino3PhaseI2CSensor::max_average(float x, float y, float alpha_cor) {
 }
 
 bool Muino3PhaseI2CSensor::write_(uint8_t addr, uint8_t reg, uint8_t val) {
-    Wire.beginTransmission(addr);
-    Wire.write(reg);
-    Wire.write(val);
-
-    if (Wire.endTransmission() != 0) {
+    uint8_t data[2] = {reg, val};
+    auto err = this->bus_->write(addr, data, 2);
+    if (err != i2c::ERROR_OK) {
         ESP_LOGE(TAG, "Failed to write to 0x%02X", addr);
         return false;
     }
@@ -147,15 +145,16 @@ bool Muino3PhaseI2CSensor::write_(uint8_t addr, uint8_t reg, uint8_t val) {
     return true;
 }
 
-bool Muino3PhaseI2CSensor::write_(uint8_t addr, uint8_t reg, uint8_t* val, size_t length) {
-    Wire.beginTransmission(addr);
-    Wire.write(reg);
-
+bool Muino3PhaseI2CSensor::write_(uint8_t addr, uint8_t reg, uint8_t *val, size_t length) {
+    std::vector<uint8_t> data;
+    data.reserve(length + 1);
+    data.push_back(reg);
     for (size_t i = 0; i < length; i++) {
-        Wire.write(val[i]);
+        data.push_back(val[i]);
     }
 
-    if (Wire.endTransmission() != 0) {
+    auto err = this->bus_->write(addr, data.data(), data.size());
+    if (err != i2c::ERROR_OK) {
         ESP_LOGE(TAG, "Failed to write to 0x%02X", addr);
         return false;
     }
@@ -163,17 +162,11 @@ bool Muino3PhaseI2CSensor::write_(uint8_t addr, uint8_t reg, uint8_t* val, size_
     return true;
 }
 
-bool Muino3PhaseI2CSensor::read_(uint8_t addr, uint8_t reg, uint8_t* data, size_t length) {
-    Wire.beginTransmission(addr);
-    Wire.write(reg);
-    if (Wire.endTransmission(false) != 0) {
+bool Muino3PhaseI2CSensor::read_(uint8_t addr, uint8_t reg, uint8_t *data, size_t length) {
+    auto err = this->bus_->write_readv(addr, &reg, 1, data, length);
+    if (err != i2c::ERROR_OK) {
         ESP_LOGE(TAG, "Failed to read from 0x%02X", addr);
         return false;
-    }
-
-    Wire.requestFrom(addr, length);
-    for (size_t i = 0; i < length && Wire.available(); i++) {
-        data[i] = Wire.read();
     }
 
     return true;
